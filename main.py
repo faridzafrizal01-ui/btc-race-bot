@@ -7,7 +7,9 @@ Strategy (validated on the dev window: net PnL +$5.24, max drawdown 0.31%,
   (a dip below the short-term mean).
 - Sell the whole position when the close reverts to at least SMA x 1.002,
   or falls 0.4% below the highest close since entry (trailing stop),
-  or the position is worth at most 99% of what was paid (stop-loss).
+  or the position is worth at most 99% of what was paid (stop-loss),
+  or 240 bars (4 hours) have passed since entry without an exit
+  (max hold: never carry a stale position through a long decline).
 - One position at a time, no leverage, no shorts.
 
 Deterministic: pure float arithmetic on the closes, no clock, no random,
@@ -26,6 +28,7 @@ DIP = 0.008
 EXIT_ABOVE = 0.002
 TRAIL = 0.004
 STOP = 0.01
+MAX_HOLD = 240
 MAX_SLIP = 100
 
 closes = []
@@ -60,6 +63,9 @@ def on_batch(state, batch):
         return [{"side": "sell", "symbol": SYMBOL, "qty": holding.qty,
                  "max_slippage_bps": MAX_SLIP}]
     if close <= peak * (1 - TRAIL):
+        return [{"side": "sell", "symbol": SYMBOL, "qty": holding.qty,
+                 "max_slippage_bps": MAX_SLIP}]
+    if len(closes) - 1 - entry_idx >= MAX_HOLD:
         return [{"side": "sell", "symbol": SYMBOL, "qty": holding.qty,
                  "max_slippage_bps": MAX_SLIP}]
     if state.value(SYMBOL, holding.qty) <= entry_notional * (1 - STOP):
